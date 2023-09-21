@@ -2,6 +2,7 @@ import sys
 import cv2
 import time
 import json
+import timm
 import queue
 import torch
 import argparse
@@ -14,6 +15,8 @@ import torch.nn as nn
 import pycls.core.builders as model_builder
 from pycls.core.config import cfg
 
+MODEL_NAME="bird_img_convnextv2_nano_20230720"
+
 def pressure_predict(net, tensor_img):
     t0 = time.time()
     with torch.no_grad():
@@ -23,7 +26,7 @@ def pressure_predict(net, tensor_img):
             values, indices = torch.topk(result, 10)
     t1 = time.time()
     print("time:", t1 - t0)
-    print(values)
+    print(values, indices)
 
 if __name__ == "__main__":
     cfg.MODEL.TYPE = "regnet"
@@ -37,15 +40,18 @@ if __name__ == "__main__":
     cfg.BN.NUM_GROUPS = 4
     cfg.MODEL.NUM_CLASSES = 11120
     net = model_builder.build_model()
-    net.load_state_dict(torch.load("bird_cls_2754696.pth", map_location="cpu"))
+    net = timm.create_model("convnextv2_nano", num_classes=11120)
+    state_dict = torch.load(f"{MODEL_NAME}.pth", map_location="cpu")
+    del state_dict["_config"]
+    net.load_state_dict(state_dict)
     net.eval()
     net = net.float()
     softmax = nn.Softmax(dim=1).eval()
 
     # read image
-    img = cv2.imread("blujay.jpg")
+    img = cv2.imread("dabailu.jpg")
     img = cv2.resize(img, (300, 300))
-    tensor_img = torch.from_numpy(img).unsqueeze(0).permute(0, 3, 1, 2).float()
+    tensor_img = torch.from_numpy(img).unsqueeze(0).permute(0, 3, 1, 2).float()/255.0
     pressure_predict(net, tensor_img)
 
     # quantization

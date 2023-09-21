@@ -2,6 +2,7 @@ import sys
 import cv2
 import time
 import json
+import timm
 import queue
 import torch
 import argparse
@@ -13,6 +14,8 @@ import torch.nn as nn
 
 import pycls.core.builders as model_builder
 from pycls.core.config import cfg
+
+MODEL_NAME="bird_img_convnextv2_nano_20230720"
 
 def pressure_predict(net, tensor_img):
     t0 = time.time()
@@ -37,31 +40,35 @@ if __name__ == "__main__":
     cfg.BN.NUM_GROUPS = 4
     cfg.MODEL.NUM_CLASSES = 11120
     net = model_builder.build_model()
-    net.load_state_dict(torch.load("bird_cls_ca2_20220711_8778_2793532.pth", map_location="cpu"))
-    #net.eval()
+    net = timm.create_model("convnextv2_nano", num_classes=11120)
+    state_dict = torch.load(f"{MODEL_NAME}.pth", map_location="cpu")
+    del state_dict["_config"]
+    net.load_state_dict(state_dict)
+    net.eval()
     #net = net.float()
 
     torch.onnx.export(
         net,
         torch.randn(1, 3, 300, 300),
-        "bird_cls_ca2_20220711_8778_2793532.onnx",
+        f"{MODEL_NAME}.onnx",
         input_names = ['input'],
         output_names = ['output'])
 
     import onnx
-    onnx_model = onnx.load("bird_cls_ca2_20220711_8778_2793532.onnx")
+    onnx_model = onnx.load(f"{MODEL_NAME}.onnx")
     onnx.checker.check_model(onnx_model)
 
     # read image
-    img = cv2.imread("blujay.jpg")
+    img = cv2.imread("/home/sanbai/like2.jpg")
     img = cv2.resize(img, (300, 300))
-    img = np.expand_dims(img, axis=0)
-    img = img.transpose(0, 3, 1, 2).astype(np.float32)
+    #img = np.expand_dims(img, axis=0)
+    img = img.transpose(2, 0, 1).astype(np.float32) / 255.0
+    feed = [img]
     print(img.shape, img.dtype)
 
     import onnxruntime as ort
 
-    ort_sess = ort.InferenceSession("bird_cls_ca2_20220711_8778_2793532.onnx")
-    outputs = ort_sess.run(None, {'input': img})
+    ort_sess = ort.InferenceSession(f"{MODEL_NAME}.onnx")
+    outputs = ort_sess.run(None, {'input': feed})
     ind = outputs[0][0].argsort()[-10:][::-1]
-    print("outputs:", outputs, ind)
+    print("outputs:", outputs[0][0], ind)
