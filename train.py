@@ -11,9 +11,6 @@ import torch.utils.data as data
 import torch.nn.functional as F
 import torch.nn as nn
 
-import pycls.core.builders as model_builder
-from pycls.core.config import cfg
-
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset.birds_dataset import BirdsDataset, ListLoader
@@ -29,9 +26,9 @@ config = {
 }
 
 
-def save_ckpt(net, iteration, args, cfg):
+def save_ckpt(net, iteration, args):
     content = net.state_dict()
-    content["_config"] = cfg
+    content["_config"] = "reserved"
     torch.save(
         content,
         config["save_folder"]
@@ -111,24 +108,11 @@ def train(args, train_loader, eval_loader):
             + ".pth"
         )
         state_net = torch.load(ckpt_file)
-        cfg.merge_from_other_cfg(state_net["_config"])
         del state_net["_config"]
-        net = model_builder.build_model()
-        net = timm.create_model("convnextv2_nano", num_classes=config["num_classes"])
+        net = timm.create_model("convnextv2_atto", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
         net.load_state_dict(state_net)
     else:
-        cfg.MODEL.TYPE = "regnet"
-        # RegNetY-8.0GF
-        cfg.REGNET.DEPTH = 17
-        cfg.REGNET.SE_ON = False
-        cfg.REGNET.W0 = 192
-        cfg.REGNET.WA = 76.82
-        cfg.REGNET.WM = 2.19
-        cfg.REGNET.GROUP_W = 56
-        cfg.BN.NUM_GROUPS = 4
-        cfg.MODEL.NUM_CLASSES = config["num_classes"]
-        net = timm.create_model("convnextv2_nano", num_classes=config["num_classes"])
-        # net = model_builder.build_model()
+        net = timm.create_model("convnextv2_atto", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
 
     net = net.cuda(device=torch.cuda.current_device())
     print("net", net)
@@ -172,7 +156,7 @@ def train(args, train_loader, eval_loader):
     batch_iterator = iter(train_loader)
     sum_accuracy = 0
     step = 0
-    config["eval_period"] = len(train_loader.dataset) // args.batch_size // 4
+    config["eval_period"] = len(train_loader.dataset) // args.batch_size
     config["verbose_period"] = config["eval_period"] // 5
 
     for iteration in range(args.resume + 1, sys.maxsize):
@@ -264,10 +248,10 @@ def train(args, train_loader, eval_loader):
         if iteration % config["eval_period"] == 0 and iteration != 0:
             # save checkpoint
             print("Saving state, iter:", iteration, flush=True)
-            save_ckpt(net, iteration, args, cfg)
+            save_ckpt(net, iteration, args)
 
     # final checkpoint
-    save_ckpt(net, iteration, args, cfg)
+    save_ckpt(net, iteration, args)
 
 
 if __name__ == "__main__":
@@ -280,7 +264,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dataset_root",
-        default="/media/data2/i18n/V5.1.20220722",
+        default="/media/data2/mammals/trainingsets/V1.20230915/",
         type=str,
         help="Root path of data",
     )

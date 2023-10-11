@@ -31,7 +31,7 @@ class ListLoader(object):
                 for image_file in os.listdir(os.path.join(root_path, dir_name)):
                     self.category_count[type_id] += 1
 
-                if not finetune and self.category_count[type_id] < 100:
+                if not finetune and self.category_count[type_id] < 200:
                     continue
 
                 for image_file in os.listdir(os.path.join(root_path, dir_name)):
