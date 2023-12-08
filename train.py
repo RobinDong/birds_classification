@@ -10,6 +10,7 @@ import torch.optim as optim
 import torch.utils.data as data
 import torch.nn.functional as F
 import torch.nn as nn
+import torchvision.transforms as T
 
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -109,10 +110,10 @@ def train(args, train_loader, eval_loader):
         )
         state_net = torch.load(ckpt_file)
         del state_net["_config"]
-        net = timm.create_model("convnextv2_atto", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
+        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
         net.load_state_dict(state_net)
     else:
-        net = timm.create_model("convnextv2_atto", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
+        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
 
     net = net.cuda(device=torch.cuda.current_device())
     print("net", net)
@@ -153,6 +154,7 @@ def train(args, train_loader, eval_loader):
     net, optimizer = amp.initialize(net, optimizer, opt_level="O2" if args.fp16 else "O0")
 
     aug = augmentations.Augmentations().cuda()
+    randaug = T.RandAugment().cuda()
     batch_iterator = iter(train_loader)
     sum_accuracy = 0
     step = 0
@@ -169,7 +171,10 @@ def train(args, train_loader, eval_loader):
         except Exception as e:
             print("Loading data exception:", e)
 
+
         images = Variable(images.cuda()).permute(0, 3, 1, 2)
+        images = randaug(images)
+
         if args.fp16:
             images = images.half()
         else:
