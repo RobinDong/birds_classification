@@ -19,15 +19,15 @@ class ListLoader(object):
         self.category_count = Counter()  # number of images for each category
         self.image_list = []
         self.labelmap = {}
+        type_id = -1
         for directory in os.walk(root_path):
             for dir_name in directory[1]:  # All subdirectories
-                # Since V5 dataset, we directly use dir_name as id
-                type_id = int(dir_name)
-                type_name = dir_name
+                # For tetrapod, we need to map name to id
+                type_id += 1
+                self.labelmap[dir_name] = type_id
                 if type_id < 0 or type_id > num_classes:
                     print("Wrong directory: {}!".format(dir_name))
                     continue
-                self.labelmap[type_id] = type_name
                 for image_file in os.listdir(os.path.join(root_path, dir_name)):
                     self.category_count[type_id] += 1
 
@@ -80,7 +80,7 @@ class ListLoader(object):
 
     def export_labelmap(self, path="labelmap.csv"):
         with open(path, "w") as fp:
-            for type_id, type_name in self.labelmap.items():
+            for type_name, type_id in self.labelmap.items():
                 count = self.category_count[type_id]
                 fp.write(str(type_id) + "," + type_name + "," + str(count) + "\n")
 

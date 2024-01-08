@@ -20,7 +20,7 @@ from utils import augmentations
 import apex.amp as amp
 
 config = {
-    "num_classes": 11120,
+    "num_classes": 16800,
     "num_workers": 2,
     "save_folder": "ckpt/",
     "ckpt_name": "bird_cls",
