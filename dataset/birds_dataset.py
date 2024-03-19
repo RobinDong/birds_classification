@@ -7,7 +7,8 @@ import torch.utils.data as data
 from collections import Counter
 
 IMAGE_SHAPE = (300, 300)
-SEED = 20190519
+# SEED = 20190519
+SEED = 20240119
 EVAL_RATIO = 0.05
 INCORRECT_DATA_FILE = "incorrect.txt"
 

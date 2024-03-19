@@ -12,10 +12,8 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-import pycls.core.builders as model_builder
-from pycls.core.config import cfg
 
-MODEL_NAME="bird_img_convnextv2_nano_20230720"
+MODEL_NAME="ckpt/mix_cls_471700"
 
 def pressure_predict(net, tensor_img):
     t0 = time.time()
@@ -29,18 +27,7 @@ def pressure_predict(net, tensor_img):
     print(values, indices)
 
 if __name__ == "__main__":
-    cfg.MODEL.TYPE = "regnet"
-    # RegNetY-8.0GF
-    cfg.REGNET.DEPTH = 17
-    cfg.REGNET.SE_ON = False
-    cfg.REGNET.W0 = 192
-    cfg.REGNET.WA = 76.82
-    cfg.REGNET.WM = 2.19
-    cfg.REGNET.GROUP_W = 56
-    cfg.BN.NUM_GROUPS = 4
-    cfg.MODEL.NUM_CLASSES = 11120
-    net = model_builder.build_model()
-    net = timm.create_model("convnextv2_nano", num_classes=11120)
+    net = timm.create_model("convnextv2_nano", num_classes=27780)
     state_dict = torch.load(f"{MODEL_NAME}.pth", map_location="cpu")
     del state_dict["_config"]
     net.load_state_dict(state_dict)
@@ -58,6 +45,10 @@ if __name__ == "__main__":
     onnx_model = onnx.load(f"{MODEL_NAME}.onnx")
     onnx.checker.check_model(onnx_model)
 
+    from onnx_tf.backend import prepare
+    tf_rep = prepare(onnx_model)
+    tf_rep.export_graph(f"{MODEL_NAME}.tf")
+
     # read image
     img = cv2.imread("/home/sanbai/like2.jpg")
     img = cv2.resize(img, (300, 300))
@@ -72,3 +63,5 @@ if __name__ == "__main__":
     outputs = ort_sess.run(None, {'input': feed})
     ind = outputs[0][0].argsort()[-10:][::-1]
     print("outputs:", outputs[0][0], ind)
+
+
