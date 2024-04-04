@@ -110,10 +110,10 @@ def train(args, train_loader, eval_loader):
         )
         state_net = torch.load(ckpt_file)
         del state_net["_config"]
-        net = timm.create_model("convnextv2_nano", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
+        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
         net.load_state_dict(state_net)
     else:
-        net = timm.create_model("convnextv2_nano", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
+        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
 
     net = net.cuda(device=torch.cuda.current_device())
     print("net", net)

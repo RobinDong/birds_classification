@@ -13,7 +13,7 @@ import numpy as np
 import torch.nn as nn
 
 
-MODEL_NAME="ckpt/mix_cls_471700"
+MODEL_NAME="ca2_mix_cls_8492792_8722_20240316.nano"
 
 def pressure_predict(net, tensor_img):
     t0 = time.time()
@@ -45,9 +45,9 @@ if __name__ == "__main__":
     onnx_model = onnx.load(f"{MODEL_NAME}.onnx")
     onnx.checker.check_model(onnx_model)
 
-    from onnx_tf.backend import prepare
+    """from onnx_tf.backend import prepare
     tf_rep = prepare(onnx_model)
-    tf_rep.export_graph(f"{MODEL_NAME}.tf")
+    tf_rep.export_graph(f"{MODEL_NAME}.tf")"""
 
     # read image
     img = cv2.imread("/home/sanbai/like2.jpg")
