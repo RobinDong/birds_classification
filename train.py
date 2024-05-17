@@ -1,5 +1,6 @@
 import sys
 import time
+import timm
 import datetime
 import argparse
 import numpy as np
@@ -9,29 +10,26 @@ import torch.optim as optim
 import torch.utils.data as data
 import torch.nn.functional as F
 import torch.nn as nn
-
-import pycls.core.builders as model_builder
-from pycls.core.config import cfg
+import torchvision.transforms as T
 
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset.birds_dataset import BirdsDataset, ListLoader
 from utils import augmentations
-from sam import SAM
 
 import apex.amp as amp
 
 config = {
-    "num_classes": 11120,
+    "num_classes": 29200,
     "num_workers": 2,
     "save_folder": "ckpt/",
-    "ckpt_name": "bird_cls",
+    "ckpt_name": "mix_cls",
 }
 
 
-def save_ckpt(net, iteration, args, cfg):
+def save_ckpt(net, iteration, args):
     content = net.state_dict()
-    content["_config"] = cfg
+    content["_config"] = "reserved"
     torch.save(
         content,
         config["save_folder"]
@@ -111,22 +109,11 @@ def train(args, train_loader, eval_loader):
             + ".pth"
         )
         state_net = torch.load(ckpt_file)
-        cfg.merge_from_other_cfg(state_net["_config"])
         del state_net["_config"]
-        net = model_builder.build_model()
+        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
         net.load_state_dict(state_net)
     else:
-        cfg.MODEL.TYPE = "regnet"
-        # RegNetY-8.0GF
-        cfg.REGNET.DEPTH = 17
-        cfg.REGNET.SE_ON = False
-        cfg.REGNET.W0 = 192
-        cfg.REGNET.WA = 76.82
-        cfg.REGNET.WM = 2.19
-        cfg.REGNET.GROUP_W = 56
-        cfg.BN.NUM_GROUPS = 4
-        cfg.MODEL.NUM_CLASSES = config["num_classes"]
-        net = model_builder.build_model()
+        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
 
     net = net.cuda(device=torch.cuda.current_device())
     print("net", net)
@@ -137,14 +124,13 @@ def train(args, train_loader, eval_loader):
         for param in net.parameters():
             param.requires_grad = False
         # Unfreeze some layers
-        for layer in [net.s3, net.s4]:
+        for layer in [net.stages[2], net.stages[3]]:
             for param in layer.parameters():
                 param.requies_grad = True
         net.head.fc.weight.requires_grad = True
-        base_optimizer = optim.SGD
-        optimizer = SAM(
+        net.head.fc.bias.requires_grad = True
+        optimizer = optim.SGD(
             filter(lambda param: param.requires_grad, net.parameters()),
-            base_optimizer,
             lr=args.lr,
             momentum=args.momentum,
             nesterov=False,
@@ -160,7 +146,7 @@ def train(args, train_loader, eval_loader):
         optimizer,
         "max",
         factor=0.5,
-        patience=3,
+        patience=1,
         verbose=True,
         threshold=5e-3,
         threshold_mode="abs",
@@ -169,10 +155,11 @@ def train(args, train_loader, eval_loader):
     net, optimizer = amp.initialize(net, optimizer, opt_level="O2" if args.fp16 else "O0")
 
     aug = augmentations.Augmentations().cuda()
+    randaug = T.RandAugment().cuda()
     batch_iterator = iter(train_loader)
     sum_accuracy = 0
     step = 0
-    config["eval_period"] = len(train_loader.dataset) // args.batch_size // 4
+    config["eval_period"] = len(train_loader.dataset) // args.batch_size
     config["verbose_period"] = config["eval_period"] // 5
 
     for iteration in range(args.resume + 1, sys.maxsize):
@@ -185,7 +172,10 @@ def train(args, train_loader, eval_loader):
         except Exception as e:
             print("Loading data exception:", e)
 
+
         images = Variable(images.cuda()).permute(0, 3, 1, 2)
+        images = randaug(images)
+
         if args.fp16:
             images = images.half()
         else:
@@ -214,21 +204,7 @@ def train(args, train_loader, eval_loader):
                 loss, out_mixup = mixup_criterion(out, targets_a, targets_b, lam)
 
             # backprop
-            if args.fp16:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                loss.backward()
-
-            nn.utils.clip_grad_norm_(net.parameters(), max_norm=20, norm_type=2)
-            optimizer.first_step(zero_grad=True)
-
-            if iteration % config["verbose_period"] == 0:
-                out = net(images)
-                loss = criterion(out, one_hot)
-            else:
-                out = net(inputs)
-                loss, out_mixup = mixup_criterion(out, targets_a, targets_b, lam)
+            optimizer.zero_grad()
 
             if args.fp16:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -237,7 +213,7 @@ def train(args, train_loader, eval_loader):
                 loss.backward()
 
             nn.utils.clip_grad_norm_(net.parameters(), max_norm=20, norm_type=2)
-            optimizer.second_step(zero_grad=True)
+            optimizer.step()
 
 
         t1 = time.time()
@@ -278,10 +254,10 @@ def train(args, train_loader, eval_loader):
         if iteration % config["eval_period"] == 0 and iteration != 0:
             # save checkpoint
             print("Saving state, iter:", iteration, flush=True)
-            save_ckpt(net, iteration, args, cfg)
+            save_ckpt(net, iteration, args)
 
     # final checkpoint
-    save_ckpt(net, iteration, args, cfg)
+    save_ckpt(net, iteration, args)
 
 
 if __name__ == "__main__":
@@ -294,7 +270,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dataset_root",
-        default="/media/data2/i18n/V5.1.20220722",
+        default="/media/data2/mammals/trainingsets/V1.20230915/",
         type=str,
         help="Root path of data",
     )
@@ -320,6 +296,12 @@ if __name__ == "__main__":
         help="Finetune model by using all categories",
     )
     parser.add_argument(
+        "--category-prefix",
+        default="",
+        type=str,
+        help="Finetune model by using only this type of category",
+    )
+    parser.add_argument(
         "--fp16",
         default=False,
         type=bool,
@@ -334,10 +316,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     t0 = time.time()
+    # Firstly, export label map of the whole dataset
     list_loader = ListLoader(
-        args.dataset_root, config["num_classes"], args.finetune
+        args.dataset_root, config["num_classes"], True, "")
     )
     list_loader.export_labelmap()
+    # Load what we want for this time of training
+    list_loader = ListLoader(
+        args.dataset_root, config["num_classes"], args.finetune, args.category_prefix
+    )
     image_list, train_indices, eval_indices = list_loader.image_indices()
 
     train_set = BirdsDataset(

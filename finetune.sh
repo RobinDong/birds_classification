@@ -1,1 +1,1 @@
-PYTHONPATH=../sam/ python3 -u train.py --momentum=0.9 --lr=4.0 --batch_size=180 --resume=5541495 --finetune=True --dataset_root=/media/data2/i18n/V5.6.20230226|tee finetune.log
+python3 -u train.py --momentum=0.9 --lr=1e-3 --batch_size=230 --fp16=True --resume=3094644 --finetune=True --category-prefix=B --dataset_root=/media/data2/tetrapod/trainingset/V4.0.20240414/|tee finetune.log

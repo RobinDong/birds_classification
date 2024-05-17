@@ -69,6 +69,10 @@ class Augmentations(nn.Module):
         dim = torch.rand(1, device='cuda').round().long().data.item() + 2
         image = torch.flip(image, (dim,))
 
+        # Rotate 90, 0 or -90
+        k = torch.randint(-1, 2, (1,), device='cuda').item()
+        image = torch.rot90(image, k=k, dims=[2, 3])
+
         # Rotate -90 ~ 90
         """angle = torch.rand(1, device='cuda') * 180 - 90
         elastic_scale = torch.rand((4), device='cuda')*0.4 + 0.8  # Also scale the image
