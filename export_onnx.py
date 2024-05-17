@@ -13,7 +13,8 @@ import numpy as np
 import torch.nn as nn
 
 
-MODEL_NAME="ca2_mix_cls_8492792_8722_20240316.nano"
+#MODEL_NAME="ca2_mix_cls_8492792_8722_20240316.nano"
+MODEL_NAME="ckpt/mix_cls_1499877"
 
 def pressure_predict(net, tensor_img):
     t0 = time.time()
@@ -27,7 +28,7 @@ def pressure_predict(net, tensor_img):
     print(values, indices)
 
 if __name__ == "__main__":
-    net = timm.create_model("convnextv2_nano", num_classes=27780)
+    net = timm.create_model("convnextv2_tiny", num_classes=29200)
     state_dict = torch.load(f"{MODEL_NAME}.pth", map_location="cpu")
     del state_dict["_config"]
     net.load_state_dict(state_dict)
@@ -60,8 +61,9 @@ if __name__ == "__main__":
     import onnxruntime as ort
 
     ort_sess = ort.InferenceSession(f"{MODEL_NAME}.onnx")
+    begin = time.time()
     outputs = ort_sess.run(None, {'input': feed})
     ind = outputs[0][0].argsort()[-10:][::-1]
-    print("outputs:", outputs[0][0], ind)
+    print("outputs:", outputs[0][0], ind, " time(ms):", (time.time()-begin)*1000)
 
 

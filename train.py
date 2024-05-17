@@ -20,7 +20,7 @@ from utils import augmentations
 import apex.amp as amp
 
 config = {
-    "num_classes": 27780,
+    "num_classes": 29200,
     "num_workers": 2,
     "save_folder": "ckpt/",
     "ckpt_name": "mix_cls",
@@ -128,6 +128,7 @@ def train(args, train_loader, eval_loader):
             for param in layer.parameters():
                 param.requies_grad = True
         net.head.fc.weight.requires_grad = True
+        net.head.fc.bias.requires_grad = True
         optimizer = optim.SGD(
             filter(lambda param: param.requires_grad, net.parameters()),
             lr=args.lr,
@@ -145,7 +146,7 @@ def train(args, train_loader, eval_loader):
         optimizer,
         "max",
         factor=0.5,
-        patience=3,
+        patience=1,
         verbose=True,
         threshold=5e-3,
         threshold_mode="abs",
@@ -295,6 +296,12 @@ if __name__ == "__main__":
         help="Finetune model by using all categories",
     )
     parser.add_argument(
+        "--category-prefix",
+        default="",
+        type=str,
+        help="Finetune model by using only this type of category",
+    )
+    parser.add_argument(
         "--fp16",
         default=False,
         type=bool,
@@ -309,10 +316,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     t0 = time.time()
+    # Firstly, export label map of the whole dataset
     list_loader = ListLoader(
-        args.dataset_root, config["num_classes"], args.finetune
+        args.dataset_root, config["num_classes"], True, "")
     )
     list_loader.export_labelmap()
+    # Load what we want for this time of training
+    list_loader = ListLoader(
+        args.dataset_root, config["num_classes"], args.finetune, args.category_prefix
+    )
     image_list, train_indices, eval_indices = list_loader.image_indices()
 
     train_set = BirdsDataset(

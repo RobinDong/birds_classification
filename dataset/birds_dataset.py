@@ -14,18 +14,25 @@ INCORRECT_DATA_FILE = "incorrect.txt"
 
 
 class ListLoader(object):
-    def __init__(self, root_path, num_classes, finetune):
+    def __init__(self, root_path, num_classes, finetune, category_prefix):
         np.random.seed(SEED)
 
         self.category_count = Counter()  # number of images for each category
         self.image_list = []
         self.labelmap = {}
+        if category_prefix:
+            self.load_labelmap()
         type_id = -1
         for directory in os.walk(root_path):
             for dir_name in directory[1]:  # All subdirectories
                 # For tetrapod, we need to map name to id
-                type_id += 1
-                self.labelmap[dir_name] = type_id
+                if category_prefix:
+                    if dir_name[0] != category_prefix:
+                        continue
+                    type_id = self.labelmap[dir_name]
+                else:
+                    type_id += 1
+                    self.labelmap[dir_name] = type_id
                 if type_id < 0 or type_id > num_classes:
                     print("Wrong directory: {}!".format(dir_name))
                     continue
@@ -84,6 +91,13 @@ class ListLoader(object):
             for type_name, type_id in self.labelmap.items():
                 count = self.category_count[type_id]
                 fp.write(str(type_id) + "," + type_name + "," + str(count) + "\n")
+
+    def load_labelmap(self, path="labelmap.csv"):
+        with open(path, "r") as fp:
+            for line in fp:
+                arr = line.split(",")
+                type_id, type_name = int(arr[0]), arr[1]
+                self.labelmap[type_name] = type_id
 
 
 class BirdsDataset(data.Dataset):

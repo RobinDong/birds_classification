@@ -12,13 +12,15 @@ import threading
 import torch
 import numpy as np
 import torch.nn as nn
+import openvino as ov
 
-MODEL_NAME="mammals_20231119_0.9190_tiny"
+#MODEL_NAME="mammals_20231119_0.9190_tiny"
+MODEL_NAME="ckpt/mix_cls_1499877"
 
 def pressure_predict(net, tensor_img):
     t0 = time.time()
     with torch.no_grad():
-        for _ in range(20):
+        for _ in range(100):
             result = net(tensor_img)
             #result = softmax(result)
             values, indices = torch.topk(result, 10)
@@ -32,7 +34,7 @@ def print_model_size(mdl):
     os.remove('tmp.pt')
 
 if __name__ == "__main__":
-    net = timm.create_model("convnextv2_tiny", num_classes=11120)
+    net = timm.create_model("convnextv2_tiny", num_classes=29200)
     state_dict = torch.load(f"{MODEL_NAME}.pth", map_location="cpu")
     del state_dict["_config"]
     net.load_state_dict(state_dict)
@@ -51,11 +53,24 @@ if __name__ == "__main__":
     softmax = nn.Softmax(dim=1).eval()
 
     # read image
-    img = cv2.imread("pigs.jpg")
+    img = cv2.imread("/home/sanbai/dabailu.jpg")
     img = cv2.resize(img, (300, 300))
     tensor_img = torch.from_numpy(img).unsqueeze(0).permute(0, 3, 1, 2).float()/255.0
     print("normal:")
     pressure_predict(net, tensor_img)
+
+    # openvino
+    ov_model = ov.convert_model(net, example_input=(tensor_img,))
+    core = ov.Core()
+    cmodel = core.compile_model(ov_model, "CPU")
+    print("openvino:")
+    begin = time.time()
+    for _ in range(100):
+        result = cmodel({0: tensor_img.numpy()})
+        #print("OVDict:", result[0], type(result[0]))
+        values, indices = torch.topk(torch.tensor(result[0]), 10)
+    print("time:", time.time() - begin)
+    print(values, indices)
 
     # quantization
     model_int8 = torch.quantization.quantize_dynamic(
@@ -66,8 +81,8 @@ if __name__ == "__main__":
     print("dynamic quantization:")
     pressure_predict(model_int8, tensor_img)
 
-    print("static quantization:")
-    pressure_predict(model_static_quantized, tensor_img)
+    #print("static quantization:")
+    #pressure_predict(model_static_quantized, tensor_img)
 
 
     dummy_input = torch.randn(1, 3, 300, 300)
@@ -80,7 +95,8 @@ if __name__ == "__main__":
 
     import intel_extension_for_pytorch as ipex
     net = net.to(memory_format=torch.channels_last)
-    net = ipex.optimize(net)
+    net = ipex.optimize(net, weights_prepack=False)
+    net = torch.compile(net, backend="ipex")
     tensor_img = tensor_img.to(memory_format=torch.channels_last)
 
     print("intel opt:")
