@@ -115,6 +115,7 @@ def train(args, train_loader, eval_loader):
     else:
         net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
 
+    net = torch.compile(net)
     net = net.cuda(device=torch.cuda.current_device())
     print("net", net)
 
@@ -300,7 +301,7 @@ if __name__ == "__main__":
         default="",
         type=str,
         help="Finetune model by using only this type of category",
-    )
+        )
     parser.add_argument(
         "--fp16",
         default=False,
@@ -318,7 +319,7 @@ if __name__ == "__main__":
     t0 = time.time()
     # Firstly, export label map of the whole dataset
     list_loader = ListLoader(
-        args.dataset_root, config["num_classes"], True, "")
+        args.dataset_root, config["num_classes"], True, ""
     )
     list_loader.export_labelmap()
     # Load what we want for this time of training
