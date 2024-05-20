@@ -16,18 +16,19 @@ INCORRECT_DATA_FILE = "incorrect.txt"
 class ListLoader(object):
     def __init__(self, root_path, num_classes, finetune, category_prefix):
         np.random.seed(SEED)
+        category_set = set(category_prefix.split(",")) - set([""])
 
         self.category_count = Counter()  # number of images for each category
         self.image_list = []
         self.labelmap = {}
-        if category_prefix:
+        if category_set:
             self.load_labelmap()
         type_id = -1
         for directory in os.walk(root_path):
             for dir_name in directory[1]:  # All subdirectories
                 # For tetrapod, we need to map name to id
-                if category_prefix:
-                    if dir_name[0] != category_prefix:
+                if category_set:
+                    if dir_name[0] not in category_set:
                         continue
                     type_id = self.labelmap[dir_name]
                 else:
