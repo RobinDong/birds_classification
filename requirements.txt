@@ -1,1 +1,2 @@
+timm
 opencv-python-headless
