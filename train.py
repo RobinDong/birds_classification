@@ -99,6 +99,9 @@ def mixup_criterion(pred, y_a, y_b, lam):
 
 
 def train(args, train_loader, eval_loader):
+    net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
+    net = torch.compile(net)
+
     if args.resume:
         print("Resuming training, loading {}...".format(args.resume))
         ckpt_file = (
@@ -110,12 +113,8 @@ def train(args, train_loader, eval_loader):
         )
         state_net = torch.load(ckpt_file)
         del state_net["_config"]
-        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
         net.load_state_dict(state_net)
-    else:
-        net = timm.create_model("convnextv2_tiny", num_classes=config["num_classes"], drop_rate=0, drop_path_rate=0)
 
-    net = torch.compile(net)
     net = net.cuda(device=torch.cuda.current_device())
     print("net", net)
 
@@ -148,7 +147,6 @@ def train(args, train_loader, eval_loader):
         "max",
         factor=0.5,
         patience=1,
-        verbose=True,
         threshold=5e-3,
         threshold_mode="abs",
     )
@@ -244,11 +242,11 @@ def train(args, train_loader, eval_loader):
             with torch.no_grad():
                 loss, accuracy = evaluate(net, eval_loader, args)
             now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            scheduler.step(accuracy)
             print(
-                f"[{now}] Eval accuracy: {accuracy:.4f} | Train accuracy: {sum_accuracy/step:.4f}",
+                f"[{now}] Eval accuracy: {accuracy:.4f} | Train accuracy: {sum_accuracy/step:.4f} | lr: {scheduler.get_last_lr()}",
                 flush=True,
             )
-            scheduler.step(accuracy)
             sum_accuracy = 0
             step = 0
 
