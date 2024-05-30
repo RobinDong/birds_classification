@@ -1,2 +1,4 @@
-timm
-opencv-python-headless
+torch==2.3.0
+torchvision==0.18.0
+timm==1.0.3
+opencv-python-headless==4.9.0.80

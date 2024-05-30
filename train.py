@@ -21,7 +21,7 @@ import apex.amp as amp
 
 config = {
     "num_classes": 29200,
-    "num_workers": 2,
+    "num_workers": 4,
     "save_folder": "ckpt/",
     "ckpt_name": "mix_cls",
 }
@@ -146,7 +146,7 @@ def train(args, train_loader, eval_loader):
         optimizer,
         "max",
         factor=0.5,
-        patience=1,
+        patience=2,
         threshold=5e-3,
         threshold_mode="abs",
     )
@@ -154,7 +154,8 @@ def train(args, train_loader, eval_loader):
     net, optimizer = amp.initialize(net, optimizer, opt_level="O2" if args.fp16 else "O0")
 
     aug = augmentations.Augmentations().cuda()
-    randaug = T.RandAugment().cuda()
+    randaug = T.RandAugment(num_ops=4, magnitude=12).cuda()
+    autoaug = T.AutoAugment().cuda()
     batch_iterator = iter(train_loader)
     sum_accuracy = 0
     step = 0
@@ -174,6 +175,7 @@ def train(args, train_loader, eval_loader):
 
         images = Variable(images.cuda()).permute(0, 3, 1, 2)
         images = randaug(images)
+        images = autoaug(images)
 
         if args.fp16:
             images = images.half()
@@ -244,7 +246,7 @@ def train(args, train_loader, eval_loader):
             now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             scheduler.step(accuracy)
             print(
-                f"[{now}] Eval accuracy: {accuracy:.4f} | Train accuracy: {sum_accuracy/step:.4f} | lr: {scheduler.get_last_lr()}",
+                f"[{now}] Eval accuracy: {accuracy:.4f} | Train accuracy: {sum_accuracy/step:.4f} | lr: {scheduler.get_last_lr()[0]:.2e}",
                 flush=True,
             )
             sum_accuracy = 0

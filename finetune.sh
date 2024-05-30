@@ -1,1 +1,1 @@
-python3 -u train.py --momentum=0.9 --lr=1e-3 --batch_size=230 --fp16=True --resume=3094644 --finetune=True --category-prefix=B --dataset_root=/media/data2/tetrapod/trainingset/V4.0.20240414/|tee finetune.log
+python3 -u train.py --momentum=0.9 --lr=4.0 --batch_size=1280 --fp16=True --resume=1371750 --finetune=True --category-prefix=A,M,R --dataset_root=/media/data2/tetrapod/trainingset/V3.1.20240403|tee finetune.log
