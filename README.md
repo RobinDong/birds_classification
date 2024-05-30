@@ -12,3 +12,11 @@
 1. finetune.sh (train with small categories)
 1. eval.sh (get 'incorrect' samples for the model)
 1. train_second.sh (train with 'incorrect' samples enhanced)
+
+## experiments log
+
+### 2024.05.30 A/M/R ###
+
+Dataset: "tetrapod/trainingset/V3.1.20240403"
+Reach 86.19% accuracy in pre-training, 89.73% accuracy in finet-tuning.
+But in testing, it only reach `Accuracy:84.63%,Ballanced:82.13%,Weighted:8.74%,1987,8491805`.
