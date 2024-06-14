@@ -7,7 +7,6 @@ import torch.utils.data as data
 from collections import Counter
 
 IMAGE_SHAPE = (300, 300)
-# SEED = 20190519
 SEED = 20240119
 EVAL_RATIO = 0.05
 INCORRECT_DATA_FILE = "incorrect.txt"
@@ -23,6 +22,8 @@ class ListLoader(object):
         self.labelmap = {}
         if category_set:
             self.load_labelmap()
+        if not finetune:
+            pretrain_cat = pretrain_cnt = 0
         type_id = -1
         for directory in os.walk(root_path):
             for dir_name in directory[1]:  # All subdirectories
@@ -43,11 +44,16 @@ class ListLoader(object):
                 finetune_limit = 200 if "B" in category_set else 50
                 if not finetune and self.category_count[type_id] < finetune_limit:
                     continue
+                if not finetune:
+                    pretrain_cat += 1
 
                 for image_file in os.listdir(os.path.join(root_path, dir_name)):
                     full_path = os.path.join(root_path, dir_name, image_file)
                     self.image_list.append((full_path, type_id))
-
+                    if not finetune:
+                        pretrain_cnt += 1
+        if not finetune:
+            print("Pretrain categories:", pretrain_cat, " Pretrain images:", pretrain_cnt)
         avg_count = sum(self.category_count.values()) / len(self.category_count)
         print("Avg count per category:", avg_count)
         minimum = min(self.category_count, key=self.category_count.get)
@@ -78,7 +84,7 @@ class ListLoader(object):
             _, type_id = self.image_list[index]
             multiple = self.category_multiple[type_id]
             if multiple > 1:
-                for i in range(multiple):
+                for _ in range(multiple-1):
                     extra_train_indices.append(index)
 
         extra_train_indices = np.asarray(extra_train_indices, dtype=train_indices.dtype)
