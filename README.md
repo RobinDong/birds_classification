@@ -20,3 +20,9 @@
 Dataset: "tetrapod/trainingset/V3.1.20240403"
 Reach 86.19% accuracy in pre-training, 89.73% accuracy in finet-tuning.
 But in testing, it only reach `Accuracy:84.63%,Ballanced:82.13%,Weighted:8.74%,1987,8491805`.
+
+### 2024.06.14 A/M/R ###
+
+Dataset: "tetrapod/trainingset/V3.20240319"
+Reach 84.20% accuracy in pre-training, 87.86% accuracy in finet-tuning.
+In testing, it reach `Accuracy:88.31%,Ballanced:85.76%,Weighted:4.96%,1083,8491805`.
